@@ -337,14 +337,14 @@ public class GlobalSession implements SessionLifecycle, SessionStorable {
      * @param timeout                 the timeout
      */
     public GlobalSession(String applicationId, String transactionServiceGroup, String transactionName, int timeout) {
-        this.transactionId = UUIDGenerator.generateUUID();
+        this.transactionId = UUIDGenerator.generateUUID(); // 生成事务id
         this.status = GlobalStatus.Begin;
 
         this.applicationId = applicationId;
         this.transactionServiceGroup = transactionServiceGroup;
         this.transactionName = transactionName;
         this.timeout = timeout;
-        this.xid = XID.generateXID(transactionId);
+        this.xid = XID.generateXID(transactionId); // 根据事务id+ip+port,生成全局事务唯一标识xid
     }
 
     /**

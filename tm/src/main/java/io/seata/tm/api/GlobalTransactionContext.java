@@ -19,7 +19,7 @@ import io.seata.core.context.RootContext;
 import io.seata.core.exception.TransactionException;
 import io.seata.core.model.GlobalStatus;
 
-/**
+/** 创建全局事务api
  * GlobalTransaction API
  *
  * @author sharajava

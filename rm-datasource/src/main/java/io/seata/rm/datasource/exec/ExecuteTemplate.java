@@ -66,13 +66,13 @@ public class ExecuteTemplate {
                                                      StatementProxy<S> statementProxy,
                                                      StatementCallback<T, S> statementCallback,
                                                      Object... args) throws SQLException {
-        if (!RootContext.requireGlobalLock() && BranchType.AT != RootContext.getBranchType()) {
+        if (!RootContext.requireGlobalLock() && BranchType.AT != RootContext.getBranchType()) { // 不是分布式事务
             // Just work as original statement
-            return statementCallback.execute(statementProxy.getTargetStatement(), args);
+            return statementCallback.execute(statementProxy.getTargetStatement(), args); // 直接执行
         }
 
         String dbType = statementProxy.getConnectionProxy().getDbType();
-        if (CollectionUtils.isEmpty(sqlRecognizers)) {
+        if (CollectionUtils.isEmpty(sqlRecognizers)) { // visit解析sql
             sqlRecognizers = SQLVisitorFactory.get(
                     statementProxy.getTargetSQL(),
                     dbType);
@@ -83,7 +83,7 @@ public class ExecuteTemplate {
         } else {
             if (sqlRecognizers.size() == 1) {
                 SQLRecognizer sqlRecognizer = sqlRecognizers.get(0);
-                switch (sqlRecognizer.getSQLType()) {
+                switch (sqlRecognizer.getSQLType()) { // 识别出sql类型,创建不同的 executor
                     case INSERT:
                         executor = EnhancedServiceLoader.load(InsertExecutor.class, dbType,
                                 new Class[]{StatementProxy.class, StatementCallback.class, SQLRecognizer.class},
@@ -108,7 +108,7 @@ public class ExecuteTemplate {
         }
         T rs;
         try {
-            rs = executor.execute(args);
+            rs = executor.execute(args); // 执行sql
         } catch (Throwable ex) {
             if (!(ex instanceof SQLException)) {
                 // Turn other exception into SQLException

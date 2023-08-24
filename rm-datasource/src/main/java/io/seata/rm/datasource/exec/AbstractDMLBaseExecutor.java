@@ -81,7 +81,7 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
         if (connectionProxy.getAutoCommit()) {
             return executeAutoCommitTrue(args);
         } else {
-            return executeAutoCommitFalse(args);
+            return executeAutoCommitFalse(args); // 默认走这里
         }
     }
 
@@ -96,11 +96,11 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
         if (!JdbcConstants.MYSQL.equalsIgnoreCase(getDbType()) && isMultiPk()) {
             throw new NotSupportYetException("multi pk only support mysql!");
         }
-        TableRecords beforeImage = beforeImage();
-        T result = statementCallback.execute(statementProxy.getTargetStatement(), args);
-        TableRecords afterImage = afterImage(beforeImage);
-        prepareUndoLog(beforeImage, afterImage);
-        return result;
+        TableRecords beforeImage = beforeImage(); // 执行前置镜像
+        T result = statementCallback.execute(statementProxy.getTargetStatement(), args); // 执行业务sql
+        TableRecords afterImage = afterImage(beforeImage); // 执行后置镜像
+        prepareUndoLog(beforeImage, afterImage); // 使用前置镜像和后置镜像生成 undo log
+        return result; // 还没有提交
     }
 
     private boolean isMultiPk() {
@@ -137,8 +137,8 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
         try {
             connectionProxy.changeAutoCommit();
             return new LockRetryPolicy(connectionProxy).execute(() -> {
-                T result = executeAutoCommitFalse(args);
-                connectionProxy.commit();
+                T result = executeAutoCommitFalse(args); // 1.前置快照;2.业务sql;3.后置快照;4.准备undo log
+                connectionProxy.commit(); // 提交.1.注册分支事务;2.业务 sql 和 undolog 一起提交
                 return result;
             });
         } catch (Exception e) {
@@ -171,7 +171,7 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
      */
     protected abstract TableRecords afterImage(TableRecords beforeImage) throws SQLException;
 
-    private static class LockRetryPolicy extends ConnectionProxy.LockRetryPolicy {
+    private static class LockRetryPolicy extends ConnectionProxy.LockRetryPolicy { // 锁重试策略
         private final ConnectionProxy connection;
 
         LockRetryPolicy(final ConnectionProxy connection) {
@@ -180,7 +180,7 @@ public abstract class AbstractDMLBaseExecutor<T, S extends Statement> extends Ba
 
         @Override
         public <T> T execute(Callable<T> callable) throws Exception {
-            if (LOCK_RETRY_POLICY_BRANCH_ROLLBACK_ON_CONFLICT) {
+            if (LOCK_RETRY_POLICY_BRANCH_ROLLBACK_ON_CONFLICT) { // 读取配置文件中的配置 默认为 true
                 return doRetryOnLockConflict(callable);
             } else {
                 return callable.call();

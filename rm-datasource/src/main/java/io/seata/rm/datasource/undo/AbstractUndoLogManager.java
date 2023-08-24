@@ -243,7 +243,7 @@ public abstract class AbstractUndoLogManager implements UndoLogManager {
     }
 
     /**
-     * Undo.
+     * Undo.回滚 undo log
      *
      * @param dataSourceProxy the data source proxy
      * @param xid             the xid
@@ -261,12 +261,12 @@ public abstract class AbstractUndoLogManager implements UndoLogManager {
             try {
                 conn = dataSourceProxy.getPlainConnection();
 
-                // The entire undo process should run in a local transaction.
+                // The entire undo process should run in a local transaction.开启本地事务, 确保删除 undo log 和恢复业务数据的 SQL 在一个事务中 commit
                 if (originalAutoCommit = conn.getAutoCommit()) {
                     conn.setAutoCommit(false);
                 }
 
-                // Find UNDO LOG
+                // Find UNDO LOG 查询branchId 对应的 所有 undo log,用来恢复业务数据
                 selectPST = conn.prepareStatement(SELECT_UNDO_LOG_SQL);
                 selectPST.setLong(1, branchId);
                 selectPST.setString(2, xid);
@@ -280,7 +280,7 @@ public abstract class AbstractUndoLogManager implements UndoLogManager {
                     // the same branch transaction to multiple processes,
                     // ensuring that only the undo_log in the normal state is processed.
                     int state = rs.getInt(ClientTableColumnsName.UNDO_LOG_LOG_STATUS);
-                    if (!canUndo(state)) {
+                    if (!canUndo(state)) { // 状态是否可以回滚
                         if (LOGGER.isInfoEnabled()) {
                             LOGGER.info("xid {} branch {}, ignore {} undo_log", xid, branchId, state);
                         }
@@ -289,12 +289,12 @@ public abstract class AbstractUndoLogManager implements UndoLogManager {
 
                     String contextString = rs.getString(ClientTableColumnsName.UNDO_LOG_CONTEXT);
                     Map<String, String> context = parseContext(contextString);
-                    byte[] rollbackInfo = getRollbackInfo(rs);
+                    byte[] rollbackInfo = getRollbackInfo(rs); // 获取回滚信息
 
-                    String serializer = context == null ? null : context.get(UndoLogConstants.SERIALIZER_KEY);
+                    String serializer = context == null ? null : context.get(UndoLogConstants.SERIALIZER_KEY); // 获取序列化工具类
                     UndoLogParser parser = serializer == null ? UndoLogParserFactory.getInstance()
                         : UndoLogParserFactory.getInstance(serializer);
-                    BranchUndoLog branchUndoLog = parser.decode(rollbackInfo);
+                    BranchUndoLog branchUndoLog = parser.decode(rollbackInfo); // 反序列化 undo log, 得到业务记录修改前后的明文
 
                     try {
                         // put serializer name to local

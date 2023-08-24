@@ -185,7 +185,7 @@ public class ConnectionProxy extends AbstractConnectionProxy {
     public void commit() throws SQLException {
         try {
             LOCK_RETRY_POLICY.execute(() -> {
-                doCommit();
+                doCommit(); // 提交
                 return null;
             });
         } catch (SQLException e) {
@@ -227,7 +227,7 @@ public class ConnectionProxy extends AbstractConnectionProxy {
 
     private void doCommit() throws SQLException {
         if (context.inGlobalTransaction()) {
-            processGlobalTransactionCommit();
+            processGlobalTransactionCommit(); // 处理全局事务提交
         } else if (context.isGlobalLockRequire()) {
             processLocalCommitWithGlobalLocks();
         } else {
@@ -247,30 +247,30 @@ public class ConnectionProxy extends AbstractConnectionProxy {
 
     private void processGlobalTransactionCommit() throws SQLException {
         try {
-            register();
+            register(); // 注册分支事务
         } catch (TransactionException e) {
-            recognizeLockKeyConflictException(e, context.buildLockKeys());
+            recognizeLockKeyConflictException(e, context.buildLockKeys()); // 全局锁冲突异常
         }
         try {
-            UndoLogManagerFactory.getUndoLogManager(this.getDbType()).flushUndoLogs(this);
-            targetConnection.commit();
+            UndoLogManagerFactory.getUndoLogManager(this.getDbType()).flushUndoLogs(this); // 向 undo log 表插入数据
+            targetConnection.commit(); // 本地数据 和 undo log 表插入的数据一起提交
         } catch (Throwable ex) {
             LOGGER.error("process connectionProxy commit error: {}", ex.getMessage(), ex);
-            report(false);
+            report(false); // 向 seata 服务端报告一阶段情况,如果本地事务提交失败告诉 seata server
             throw new SQLException(ex);
         }
         if (IS_REPORT_SUCCESS_ENABLE) {
-            report(true);
+            report(true); // 向 seata 服务端报告一阶段情况
         }
         context.reset();
     }
 
-    private void register() throws TransactionException {
+    private void register() throws TransactionException { // 注册分支事务
         if (!context.hasUndoLog() || !context.hasLockKey()) {
             return;
         }
         Long branchId = DefaultResourceManager.get().branchRegister(BranchType.AT, getDataSourceProxy().getResourceId(),
-            null, context.getXid(), null, context.buildLockKeys());
+            null, context.getXid(), null, context.buildLockKeys()); // 向 seata 服务端注册分支事务 将分支事务要锁定的资源传给 seata-server,由 seata-server 判断锁冲突
         context.setBranchId(branchId);
     }
 
@@ -302,15 +302,15 @@ public class ConnectionProxy extends AbstractConnectionProxy {
         targetConnection.setAutoCommit(autoCommit);
     }
 
-    private void report(boolean commitDone) throws SQLException {
+    private void report(boolean commitDone) throws SQLException { // 报告一阶段情况
         if (context.getBranchId() == null) {
             return;
         }
         int retry = REPORT_RETRY_COUNT;
-        while (retry > 0) {
+        while (retry > 0) { // 重试机制
             try {
                 DefaultResourceManager.get().branchReport(BranchType.AT, context.getXid(), context.getBranchId(),
-                    commitDone ? BranchStatus.PhaseOne_Done : BranchStatus.PhaseOne_Failed, null);
+                    commitDone ? BranchStatus.PhaseOne_Done : BranchStatus.PhaseOne_Failed, null); // 报告一阶段提交成功 或 失败
                 return;
             } catch (Throwable ex) {
                 LOGGER.error("Failed to report [" + context.getBranchId() + "/" + context.getXid() + "] commit done ["
@@ -340,10 +340,10 @@ public class ConnectionProxy extends AbstractConnectionProxy {
             LockRetryController lockRetryController = new LockRetryController();
             while (true) {
                 try {
-                    return callable.call();
+                    return callable.call(); // 回调传入的lambda
                 } catch (LockConflictException lockConflict) {
-                    onException(lockConflict);
-                    lockRetryController.sleep(lockConflict);
+                    onException(lockConflict); // 捕获全局锁冲突异常
+                    lockRetryController.sleep(lockConflict); // 重试机制,休眠重试n次后抛出异常
                 } catch (Exception e) {
                     onException(e);
                     throw e;

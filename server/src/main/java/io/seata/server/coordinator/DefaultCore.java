@@ -127,7 +127,7 @@ public class DefaultCore implements Core {
     public String begin(String applicationId, String transactionServiceGroup, String name, int timeout)
         throws TransactionException {
         GlobalSession session = GlobalSession.createGlobalSession(applicationId, transactionServiceGroup, name,
-            timeout);
+            timeout); // 创建session,生成 xid
         MDC.put(RootContext.MDC_KEY_XID, session.getXid());
         session.addSessionLifecycleListener(SessionHolder.getRootSessionManager());
 
@@ -164,8 +164,8 @@ public class DefaultCore implements Core {
             return false;
         });
 
-        if (shouldCommit) {
-            boolean success = doGlobalCommit(globalSession, false);
+        if (shouldCommit) { // 应该提交
+            boolean success = doGlobalCommit(globalSession, false); // 全局提交
             //If successful and all remaining branches can be committed asynchronously, do async commit.
             if (success && globalSession.hasBranch() && globalSession.canBeCommittedAsync()) {
                 globalSession.asyncCommit();

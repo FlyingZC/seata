@@ -65,11 +65,11 @@ public class UpdateExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
     }
 
     @Override
-    protected TableRecords beforeImage() throws SQLException {
+    protected TableRecords beforeImage() throws SQLException { // 前置镜像
         ArrayList<List<Object>> paramAppenderList = new ArrayList<>();
-        TableMeta tmeta = getTableMeta();
-        String selectSQL = buildBeforeImageSQL(tmeta, paramAppenderList);
-        return buildTableRecords(tmeta, selectSQL, paramAppenderList);
+        TableMeta tmeta = getTableMeta(); // 表元数据
+        String selectSQL = buildBeforeImageSQL(tmeta, paramAppenderList); // 构建前置镜像的查询sql
+        return buildTableRecords(tmeta, selectSQL, paramAppenderList); // sql查询,构建前置镜像
     }
 
     private String buildBeforeImageSQL(TableMeta tableMeta, ArrayList<List<Object>> paramAppenderList) {
@@ -126,7 +126,7 @@ public class UpdateExecutor<T, S extends Statement> extends AbstractDMLBaseExecu
 
     private String buildAfterImageSQL(TableMeta tableMeta, TableRecords beforeImage) throws SQLException {
         StringBuilder prefix = new StringBuilder("SELECT ");
-        String whereSql = SqlGenerateUtils.buildWhereConditionByPKs(tableMeta.getPrimaryKeyOnlyName(), beforeImage.pkRows().size(), getDbType());
+        String whereSql = SqlGenerateUtils.buildWhereConditionByPKs(tableMeta.getPrimaryKeyOnlyName(), beforeImage.pkRows().size(), getDbType()); // 根据主键构建后置镜像sql
         String suffix = " FROM " + getFromTableInSQL() + " WHERE " + whereSql;
         StringJoiner selectSQLJoiner = new StringJoiner(", ", prefix.toString(), suffix);
         if (ONLY_CARE_UPDATE_COLUMNS) {

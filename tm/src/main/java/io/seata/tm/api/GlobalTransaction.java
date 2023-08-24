@@ -20,7 +20,7 @@ import io.seata.core.model.GlobalStatus;
 import io.seata.tm.api.transaction.SuspendedResourcesHolder;
 
 /**
- * Global transaction.
+ * Global transaction.全局事务
  *
  * @author sharajava
  */
